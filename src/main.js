@@ -22,16 +22,16 @@ function calculateBonusByProfit(index, total, seller) {
     const profit = seller.profit;
     
     if (index === 0) {
-        return Math.round(profit * 0.15);  // 15% для 1-го места
+        return +(profit * 0.15).toFixed(2);  // 15% с 2 знаками
     } 
     else if (index === 1 || index === 2) {
-        return Math.round(profit * 0.10);  // 10% для 2-3 мест
+        return +(profit * 0.10).toFixed(2);  // 10% с 2 знаками
     } 
     else if (index === total - 1) {
-        return 0;                          // 0% для последнего
+        return 0;                            // 0% для последнего
     } 
     else {
-        return Math.round(profit * 0.05);  // 5% для остальных
+        return +(profit * 0.05).toFixed(2);  // 5% с 2 знаками
     }
 }
 
@@ -58,6 +58,7 @@ function analyzeSalesData(data, options) {
 
     // @TODO: Подготовка итоговой коллекции с нужными полями
 
+    // Шаг 1. Проверка входных данных
     // Шаг 1. Проверка входных данных
     if (!data
         || !Array.isArray(data.sellers) 
@@ -89,7 +90,7 @@ function analyzeSalesData(data, options) {
         products_sold: {}
     }));
 
-    // Шаг 4. Индексация продавцов и товаров
+    // Шаг 4. Индексация
     const sellerIndex = Object.fromEntries(
         sellerStats.map(seller => [seller.seller_id, seller])
     );
@@ -102,23 +103,19 @@ function analyzeSalesData(data, options) {
         const seller = sellerIndex[record.seller_id];
         if (!seller) return;
 
-        // Увеличиваем счётчики чека
         seller.sales_count += 1;
         seller.revenue += record.total_amount;
 
-        // Обрабатываем товары в чеке
         record.items.forEach(item => {
             const product = productIndex[item.sku];
             if (!product) return;
 
-            // Считаем прибыль для товара
             const revenue = calculateRevenue(item, product);
             const cost = product.purchase_price * item.quantity;
             const profit = revenue - cost;
             
             seller.profit += profit;
 
-            // Считаем количество проданных товаров
             if (!seller.products_sold[item.sku]) {
                 seller.products_sold[item.sku] = 0;
             }
@@ -126,29 +123,28 @@ function analyzeSalesData(data, options) {
         });
     });
 
-    // Шаг 2 бизнес-логики: сортировка по прибыли
+    // Сортировка по прибыли (убывание)
     sellerStats.sort((a, b) => b.profit - a.profit);
 
-    // Шаг 3 бизнес-логики: бонусы и топ товаров
+    // Бонусы и топ товаров
     sellerStats.forEach((seller, index) => {
         const total = sellerStats.length;
         seller.bonus = calculateBonus(index, total, seller);
 
-        // Топ-10 товаров
         seller.top_products = Object.entries(seller.products_sold)
             .sort(([,a], [,b]) => b - a)
             .slice(0, 10)
             .map(([sku, quantity]) => ({ sku, quantity }));
     });
 
-    // Шаг 4. Итоговый результат
+    // Итоговый результат
     return sellerStats.map(seller => ({
         seller_id: seller.seller_id,
         name: `${seller.first_name} ${seller.last_name}`,
         revenue: +seller.revenue.toFixed(2),
         profit: +seller.profit.toFixed(2),
         sales_count: seller.sales_count,
-        top_products: seller.top_products,
+        top_products: seller.top_products || [],
         bonus: +seller.bonus.toFixed(2)
     }));
 }
